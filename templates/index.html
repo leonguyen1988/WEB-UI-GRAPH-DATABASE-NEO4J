@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Graph Testing</title>
+        <link rel="shortcut icon" href="#">
+        <script type="text/javascript"
+                src ="{{url_for('static',filename='jquery-3.3.1.min.js')}}"></script>
+        <!-- <script type="text/javascript"
+                src="{{ url_for('static',filename='vis.min.js')}}"></script>
+
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" 
+                rel="stylesheet" type="text/css" />      -->
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.1/d3.min.js">
+                        </script>
+            <script src="http://d3js.org/d3.v3.min.js"></script>
+        <style>        
+            #nav {
+                width: 100%;
+                height: 50px;
+                background-color: blue;
+            }
+            #graph{
+                width: 100%;
+                height: 100%;
+                border:solid 1px lightblue
+            }
+            html,body{
+                height: 100%;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div id ="nav"></div>
+        <div id="graph"></div>
+        </div>
+        
+        <script>
+            window.onload = function(){
+                var width = 960;
+                var height = 500;
+                var svg = d3.select('#graph').append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+                var SelectedValue=null;
+                raw_data = JSON.parse('{{ data|tojson }}');
+
+                full_data={nodes:[]};
+                counter  = 0;
+                for ( var i =0;i<raw_data.length;i++){
+                    
+                    singleNode={'name':null,
+                            'born':null}
+                    singleNode.name = raw_data[i].name;
+                    singleNode.born=raw_data[i].born;
+                    full_data.nodes.push(singleNode);
+                }
+                var force = d3.layout.force()
+                                    .gravity(.05)
+                                    .charge(-400)
+                                    .size([width, height]);       
+                var nodes= svg.selectAll("ellipse")
+                 .data(full_data.nodes)
+                 .enter()
+                 .append("ellipse")
+                 .attr("class","ellipse")
+                 .attr("rx", 80)
+                 .attr("ry", 20)
+                 .attr("stroke","blue")
+                 .attr("fill","lightblue")
+                 .on("dblclick",dblclick)
+                 .call(force.drag);
+                  
+             
+                var myText = svg.selectAll(".mytext")
+                            .data(full_data.nodes)
+                            .enter()
+                            .append("text")
+                            .attr("class","mytext")
+                            .attr("text-anchor", "middle");
+                            //the rest of your code
+			
+                nodes.append("title")
+                    .text(function(d) { return d.name; });
+
+                myText.style("fill", "#0000ff")
+                    .attr("width", "10")
+                    .attr("height", "10")
+                    .text(function(d) { return d.name; });
+                force.nodes(full_data.nodes)
+                     .on("tick", function(){
+                    nodes.attr("cx",
+                             function(d) { 
+                                 return d.x 
+                                })
+                        .attr("cy", 
+                            function(d) { 
+                                return d.y ;
+                            });
+                    myText.attr("x", function(d) { return d.x; })
+                         .attr("y", function(d) { return d.y; });
+                })
+                .start();
+                function dblclick(){
+                    SelectedValue= $(this).text();
+                }
+                $.post
+            }
+        </script>
+        <!-- <script>
+            d3.selectAll("div").on("click",function (){
+                console.log($(".mytext").val());
+            });
+        </script> -->
+    </body>
+</html>
