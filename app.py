@@ -548,7 +548,7 @@ CREATE
     )
     json_data = graph.run(""" 
                             MATCH (nodes:Person) 
-                                RETURN nodes.name as name, nodes.born as born limit 100
+                                RETURN nodes.name as name, nodes.born as born limit 10
                             """).data()
     return json_data
 

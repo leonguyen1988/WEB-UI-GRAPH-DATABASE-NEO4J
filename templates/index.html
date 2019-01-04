@@ -12,7 +12,8 @@
                 rel="stylesheet" type="text/css" />      -->
                 <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.1/d3.min.js">
                         </script> -->
-            <script src="http://d3js.org/d3.v3.min.js"></script>
+                        <script src="https://d3js.org/d3.v4.min.js"></script>
+                        <script src="https://cdnjs.cloudflare.com/ajax/libs/svg.js/3.0.5/svg.js"></script>
         <style>
              .smallCircle {
                  stroke: green;
@@ -24,6 +25,10 @@
              stroke-width: 3px;
              fill: #ff4d4d
             }
+            .circle.dragging {
+                fill:red;
+                stroke: brown;
+            }
             .link {
                 stroke: #aaa;
             }
@@ -31,6 +36,8 @@
             .mytext {
                 text-anchor: middle;
                 
+                fill:white;
+                font: bold 15px sans-serif; 
             }
             #nav {
                 width: 100%;
@@ -48,92 +55,227 @@
             }
 
         </style>
+
     </head>
     <body>
         <div id ="nav"></div>
-        <div id="graph"></div>
+        <div id="graph">
+            
         </div>
         <script>
-            window.onload = function(){
-                var width = 700;
-                var height = 700;
-                var svg = d3.select('#graph').append("svg")
-                    .attr("width", width)
-                    .attr("height", height)
-                    .attr("viewBox","0 10 700 700")
-                    .attr("preserveAspectRatio","xMidYMid meet");
-                var SelectedValue=null;
-                raw_data = JSON.parse('{{ data|tojson }}');
-                full_data={nodes:[],links:[]};
-                radius  = 20;
+        //    window.onload = function(){
+        //         var width = 960;
+        //         var height = 500;
+                
+        //          /*
+        //         * Drag and Zoom Features
+        //         */
 
-                /**
-                 * 
-                 * 
-                */
-                for ( var i =0;i<raw_data.length;i++){
+        //         // var zoom = d3.behavior.zoom()
+        //         //             .translate([100,50])
+        //         //             .scale(0.5);
 
-                    singleNode={'name':null,
-                            'born':null,
-                            'radius':null}
-                    singleNode.name = raw_data[i].name;
-                    singleNode.born=raw_data[i].born;
-                    if(raw_data[i].name.length>10){
-                        singleNode.radius = radius +raw_data[i].name.length*2;
-                    }else{
-                        singleNode.radius = radius;
-                    }
-                    full_data.nodes.push(singleNode);
-                }
+        //         // var drag = d3.behavior.drag()
+        //         //             // .origin(function(d) {return d;})
+        //         //             .on("dragstart",dragstarted)
+        //         //             .on("drag",dragged)
+        //         //             .on("dragend",dragended);
+                
+        //         var svg = d3.select('#graph').append("svg")
+        //             .attr("width", width *2)
+        //             .attr("height", height *2)
+                   
+                   
+        //             //.attr("viewBox","0 0 3500 3000")
+        //             //.attr("preserveAspectRatio","xMidYMid meet")
+        //             //   .append("g")
+        //             //   .attr("transform","translate(100,50)scale(.5,.5)")
+        //             // .call(zoom);
 
-                var force = d3.layout.force()
-                                    .gravity(.05)
-                                    .linkDistance(900)
-                                    .charge(-600)
-                                    .size([width, height]);
-                var nodes= svg.selectAll("circle")
-                                .data(full_data.nodes);
-                nodes.enter()
-                    .append("circle")
-                    .attr("class","circle")
-                    .attr("r",function(d) {return d.radius;})
-                    // .on("dblclick",dblclick)
-                    .call(force.drag);
-
-                 nodes.append("title")
-                    .text(function(d) { return d.name; });
-
-                var myText = svg.selectAll(".mytext")
-                            .data(full_data.nodes)
-                            .enter()
-                            .append("text")
-                            .attr("class","mytext")
-
-                myText.style("fill", "#FFFFFF")
-                    .attr("font-size","9")
-                    .text(function(d) { return d.name; });
-
-                force.nodes(full_data.nodes)
-                     .on("tick", function(){
-                    nodes
-                    // .attr("cx",function(d) {return d.x})
-                    // .attr("cy",function(d) {return d.y ;})
-                    .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
-                    myText.attr("x", function(d) { return d.x; })
-                         .attr("y", function(d) { return d.y; });
-                })
-                .start();
                 
 
-                var standard = $(document).height()
-                console.log($(document).height());
-            }
+        //         raw_data = JSON.parse('{{ data|tojson }}');
+        //         full_data={nodes:[],links:[]};
+        //         radius  = 30;
+                
+        //         /*
+        //         * Dragging functions
+        //         */
+        //             // function dragstarted(d) {
+        //             //     d3.event.sourceEvent.stopPropagation();
+        //             //     d3.select(this).classed("dragging",true);
+        //             // }
+
+        //             // function dragged(d) {
+        //             //     d3.select(this)
+        //             //       .attr("cx",d.x=d3.event.x)
+        //             //       .attr("cy",d.y=d3.event.y)
+        //             // }
+
+        //             // function dragended(d) {
+        //             //     d3.select(this).classed("dragging",false);
+        //             // }
+
+        //             // function zoomed() {
+        //             //     svg.attr("transform","translate("+d3.event.translate
+        //             //             + ")scale(" + d3.event.scale + ")");
+
+        //             // }
+        //         /**
+        //          * 
+        //          * 
+        //         */
+        //         for ( var i =0;i<raw_data.length;i++){
+
+        //             singleNode={'name':null,
+        //                     'born':null,
+        //                     'radius':null}
+        //             singleNode.name = raw_data[i].name;
+        //             singleNode.born=raw_data[i].born;
+        //             if(raw_data[i].name.length>10){
+        //                 singleNode.radius = radius +raw_data[i].name.length*1.5;
+        //             }else{
+        //                 singleNode.radius = radius;
+        //             }
+        //             full_data.nodes.push(singleNode);
+        //         }
+
+        //         var force = d3.layout.force()
+        //                             .gravity(.05)
+        //                             .linkDistance(300)
+        //                             .charge(-1550)
+        //                             .size([width, height]);
+        //         var nodes= svg.selectAll("g")
+        //                         .data(full_data.nodes);
+        //         nodes.enter()
+        //             .append("circle")
+        //             .attr("class","circle")
+        //             .attr("r",function(d) {return d.radius;})
+        //             // .on("dblclick",dblclick)
+        //             .attr("cx", function(d) { return d.x; })
+        //             .attr("cy", function(d) { return d.y; })
+        //             .call(force.drag);
+
+        //          nodes.append("title")
+        //             .text(function(d) { return d.name; });
+
+        //         var myText = svg.selectAll(".mytext")
+        //                     .data(full_data.nodes)
+        //                     .enter()
+        //                     .append("text")
+        //                     .attr("class","mytext")
+
+        //         myText.style("fill", "#FFFFFF")
+        //             .attr("font-size","9")
+        //             .text(function(d) { return d.name; });
+
+        //         force.nodes(full_data.nodes)
+        //              .on("tick", function(){
+        //             nodes
+        //             .attr("cx",function(d) {return d.x})
+        //             .attr("cy",function(d) {return d.y ;})
+        //             myText.attr("x", function(d) { return d.x; })
+        //                  .attr("y", function(d) { return d.y; });
+        //         })
+        //         force.start();
+                
+
+        //         var standard = $(document).height()
+        //         console.log($(document).height());
+        //     } 
         </script>
-        <!-- <script>
-            d3.selectAll("div").on("click",function (){
-                console.log($(".mytext").val());
+        <script>
+            $(document).ready(function(){
+                var width = window.innerWidth;
+                var height = window.innerHeight;
+                /*
+                * Setting up SVG 
+                */
+                var svg = d3.select('#graph')
+                                .append('svg')
+                                .attr("width",width)
+                                .attr("height",height);
+                
+                /**
+                * Setting up ForceSimulation
+                */
+
+                var simulation = d3.forceSimulation()
+                    .force('charge',d3.forceManyBody().strength(-200))
+                    .force('center',d3.forceCenter(width / 2 , height / 2))
+                /**
+                # Create nodes
+                **/ 
+                /*
+                # Getting dat from Back-end
+                */
+                nodes = JSON.parse('{{ data|tojson }}');
+                
+                var nodeElements = svg.append('g')
+                           .selectAll('circle')
+                           .data(nodes)
+                           .enter().append('circle')
+                     .attr("class","circle")
+                     .attr("r",50)
+                     
+                var xCoordinates=null;
+                var textElements = svg.append('g')
+                                      .selectAll('text')
+                                      .data(nodes)
+                                      .enter().append('text')
+                                      .attr('class','mytext');             
+                var firstText = svg.selectAll('g text').append('tspan')
+                                .text(function(node) {return node.name.split(' ')[0];});
+                var secondText = firstText.append('tspan')
+                                .text(function(node) {return node.name.split(' ')[1]});
+                            //           .data(nodes)
+                            //           .enter().append('text')
+                            //           .attr('class','mytext')
+                            // .text(function(node){ return node.name} )
+                            
+
+                simulation.nodes(nodes).on("tick", () => {
+                    nodeElements
+                        .attr("cx",function(node) {return node.x})
+                        .attr("cy",function(node) {return node.y});
+                    textElements
+                        .attr("x", function(node) {return node.x})
+                        .attr("y", function(node) {return node.y});
+                    firstText
+                        .attr("x",function(d) { return d.x})
+                        .attr("dy","15");
+                    secondText
+                        .attr("x",function(d) { return d.x})
+                        .attr("dy","15");
+                    
+
+                })     
+
+                var insertLinebreaks = function (d) {
+                    console.log(d3.select(this).event)
+                    var element = d3.select(this).text('\n');
+                    var space = d.name.split(' ');
+                    
+                    // for (var i =0; i<= space.length;i++){
+                        
+                                           
+                    //     if(i > 0 ){
+                    //         element.append('tspan')
+                    //                 .attr('x',xCoordinates)
+                    //                 .attr("dy","5")
+                    //                .text(space[i]);
+                    //     }else{
+                    //         element.append('tspan')
+                    //                 .attr('x',xCoordinates)
+                    //                 .attr("dy","5")
+                    //                         .text(space[i])
+                    //     }
+                    // }
+
+                }      
+                // svg.selectAll('g text').each(insertLinebreaks);
             });
-        </script> -->
+        </script>
 
         
     </body>
