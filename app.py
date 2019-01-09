@@ -28,14 +28,31 @@ def raw_data():
     json_data = CovertToJson()
     return json.dumps({"nodes":json_data})
 
-@app.route("/SubGraph",methods=['POST'])
+@app.route("/movieNodes",methods=['POST'])
 def getRelation():
     data = request.form["data"]
-    Query ="""MATCH (person:Person)-[:ACTED_IN]->(movies:Movie) WHERE person.name = """+data+"""
+    Movie_Query ="""MATCH (person:Person)-[:ACTED_IN]->(movies:Movie) WHERE person.name = """+data+"""
      RETURN movies.title as name;"""   
-    Relation_data=graph.run(Query).data()
+    Relation_data=graph.run(Movie_Query).data()
     return json.dumps(Relation_data)
-  
+
+
+@app.route("/personPerMovie", methods=['POST'])
+def getNodes():
+    try:
+        data = request.form["data"]
+    except:
+        return json.dumps('There is error for requesting data')
+    try :
+    
+    Relation_Query = """
+                        MATCH (n:Person)-[:ACTED_IN]->(m:Movie) WHERE m.title = """+data+"""
+                            RETURN n,m; 
+                    """
+    Relation_data = graph.run(Relation_Query).data()
+    print(Relation_data)
+    return json.dumps(Relation_data)
+
 # Convert data from Neo4j to Json type for using AlchemyJS library
 # Note: Before run quey in app, should run the query in neo4j browser to check the valideate
 # The Neo4j database name must be exact uppercase and lowercase character

@@ -67,6 +67,7 @@
                 var width = window.innerWidth;
                 var height = window.innerHeight;
                 var radius = 45;
+                var firstLine = null; secondLine = null;
                 /*
                 * Setting up SVG 
                 */
@@ -97,7 +98,7 @@
                 # Getting data from Back-end
                 */
                 nodes = JSON.parse('{{ data|tojson }}');
-                var links=[{source:0,target:0}]
+                 var links=[{source:0,target:0}]
 
                 var link = svg.append("g")
                             .selectAll("line")                            
@@ -125,43 +126,17 @@
                 /**
                 # Breaking the string to multiple lines
                 */           
-                var firstLine = svg.selectAll('g text').append('tspan')
-                                .text(function(node) {return node.name.split(' ')[0];});
-                var secondLine = firstLine.append('tspan')
-                                .text(function(node) {
-                                    if(node.name.split(' ').length > 2) {
-                                            return node.name.split(' ')[1]+'...'
-                                        }
-                                    else {
-                                        return node.name.split(' ')[1]
-                                    }
-                                });
-                            
+                AddMultilines(nodes);
                 
                          
                 simulation.nodes(nodes)
                     .force("collide", d3.forceCollide(radius+100).iterations(4))
                     .force('link',d3.forceLink(links).distance(200))
-                    .on("tick", () => {
-                        link.attr("x1", function(d) { return d.source.x; })
-                        .attr("y1", function(d) { return d.source.y; })
-                        .attr("x2", function(d) { return d.target.x; })
-                        .attr("y2", function(d) { return d.target.y; });
-                    nodeElements
-                        .attr("cx",function(node) {return node.x=Math.max(15, Math.min(width -15,node.x))})
-                        .attr("cy",function(node) {return node.y= Math.max(50, Math.min(height -15,node.y))})
-                    textElements
-                        .attr("x", function(node) {return node.x})
-                        .attr("y", function(node) {return node.y - 21});
-                    firstLine
-                        .attr("x",function(node) {return node.x;})
-                        
-                        .attr("dy","15");
-                    secondLine
-                        .attr("x",function(node) { return node.x})
-                        .attr("dy","15");
-                })
-
+                    .on('tick',tick);
+                
+                /*
+                * Group of dragging events.
+                */
                 function dragstarted(d) {
                 if (!d3.event.active) simulation.alphaTarget(0.3).restart()
                 d3.event.subject.fx = d3.event.subject.x;
@@ -181,28 +156,104 @@
                 if (!d3.event.active) simulation.alphaTarget(0);
                 
                 }
+                
+                /**
+                * function will break words in single node to multiple lines
+                * if the the string has more than two word it will show first two words and concats "..."
+                */
+                function AddMultilines(nodes){
+                    firstLine = svg.selectAll('g text tspan').remove()
+                    firstLine = svg.selectAll('g text').append('tspan')
+                                .text(function(node) {return node.name.split(' ')[0];});
+                    secondLine = svg.selectAll('g text').append('tspan')
+                                .text(function(node) {
+                                    if(node.name.split(' ').length > 2) {
+                                            return node.name.split(' ')[1]+'...'
+                                        }
+                                    else {
+                                        return node.name.split(' ')[1]
+                                    }
+                                });
+                }
+                /*
+                * This event will be fired when user double click to the node
+                */
                  function dblclick(){
                     SelectedValue= $(this)["0"].__data__;
+                    console.log($(this).attr('r'));
                     name = SelectedValue.name;
                     index = SelectedValue.index;
-                    $.post("/SubGraph",{data:JSON.stringify(name)}, function(data){
-                        data = JSON.parse(data);
-                        lengthOfNode = nodes.length;
-                        for(var i = 0; i<data.length;i++ ){
-                            nodes.push(data[i])
-                            links.push({source:index,target:lengthOfNode+i})
+                    console.log(SelectedValue);
+                    var duplicate = false;
+                    /*
+                    * Condition to check whether user click same node twice or not
+                    */
+                    if(links.length >=2){
+                        for (var i = 1; i< links.length; i++){
+                            if(links[i].source.name === name){
+                                duplicate = true;
+                                break;
+                            }
                         }
-                        restart()
-                        console.log(nodes)
-                        function restart(){
+                    }
+
+                    if( duplicate === false ){
+                        if (parseInt($(this).attr('r')) === radius){
+                            $.post("/movieNodes",{data:JSON.stringify(name)}, function(data){
+                                data = JSON.parse(data);
+                                lengthOfNode = nodes.length;
+                                for(var i = 0; i<data.length;i++ ){
+                                    nodes.push(data[i])
+                                    links.push({source:index,target:lengthOfNode+i})
+                                }
+                                restart()      
+                            }); 
+                        }else{
+                            $.post("/personPerMovie"
+                                    ,{data:JSON.stringify(name)}
+                                    , function(data) {
+                                        console.log(JSON.parse(data));
+                                    });
+                        }
+                    }
+                 }
+                
+                /*
+                * 
+                */
+                function tick(){
+                    link
+                    .attr("r", function(d) {return d.radius = radius;})
+                    .attr("x1", function(d) { return d.source.x; })
+                    .attr("y1", function(d) { return d.source.y; })
+                    .attr("x2", function(d) { return d.target.x; })
+                    .attr("y2", function(d) { return d.target.y; });
+                    nodeElements
+                    .attr("cx",function(node) {return node.x=Math.max(15, Math.min(width -15,node.x))})
+                    .attr("cy",function(node) {return node.y= Math.max(50, Math.min(height -15,node.y))})
+                    textElements
+                    .attr("x", function(node) {return node.x})
+                    .attr("y", function(node) {return node.y - 21});
+                    firstLine
+                    .attr("x",function(node) {return node.x;})
+                    .attr("dy","15");
+                    secondLine
+                    .attr("x",function(node) { return node.x})
+                    .attr("dy","15");
+                                
+                }
+                function restart(){
                             nodeElements = nodeElements.data(nodes, function(node) {return node.name});
                             nodeElements.exit().remove();
                             nodeElements = nodeElements.enter()
                                                         .append("circle")
-                                                        .attr("r", radius)
                                                         .attr("class","smallCircle")
+                                                        .attr("r", radius - 10)
+                                                        .on('dblclick',dblclick)
                                                         .merge(nodeElements);
                             
+                            nodeElements.append('title').text(function(node) {return node.name})
+
                             link = link.data(links, function(d) {return d.source + "-" + d.target;});
                             link.exit().remove();
                             link = link.enter()
@@ -215,44 +266,16 @@
                             textElements = textElements.enter()
                                                        .append("text")
                                                        .attr("class","mytext")
-                                                       .merge(textElements)
-                             firstLine = svg.selectAll('g text').append('tspan')
-                                .text(function(node) {return node.name.split(' ')[0];});
-                             secondLine = firstLine.append('tspan')
-                                .text(function(node) {
-                                    if(node.name.split(' ').length > 2) {
-                                            return node.name.split(' ')[1]+'...'
-                                        }
-                                    else {
-                                        return node.name.split(' ')[1]
-                                    }
-                                });
-                            simulation.nodes(nodes).force("collide", d3.forceCollide(radius).iterations(4))
-                                    .on("tick", () => {
-                                        link.attr("x1", function(d) { return d.source.x; })
-                                        .attr("y1", function(d) { return d.source.y; })
-                                        .attr("x2", function(d) { return d.target.x; })
-                                        .attr("y2", function(d) { return d.target.y; });
-                                    nodeElements
-                                        .attr("cx",function(node) {return node.x=Math.max(15, Math.min(width -15,node.x))})
-                                        .attr("cy",function(node) {return node.y= Math.max(50, Math.min(height -15,node.y))})
-                                    textElements
-                                        .attr("x", function(node) {return node.x})
-                                        .attr("y", function(node) {return node.y - 21});
-                                    firstLine
-                                        .attr("x",function(node) {return node.x;})
-                                        
-                                        .attr("dy","15");
-                                    secondLine
-                                        .attr("x",function(node) { return node.x})
-                                        .attr("dy","15");
-                                })
+                                                       .merge(textElements)                  
+                            AddMultilines(nodes);
+
+                            simulation.nodes(nodes)
+                                      .force("collide", d3.forceCollide(radius)
+                                      .iterations(4))
+                                      .on('tick',tick);                                
                             simulation.restart();
 
                         }
-                    });
-                 }
-                
         </script>    
     </body>
 </html>
