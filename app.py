@@ -8,6 +8,7 @@ app = Flask(__name__)
 
 api = Api(app)
 
+
 #
 #  This is connection tool to connect neo4j database
 # 
@@ -37,33 +38,66 @@ def raw_data():
     json_data = CovertToJson()
     return json.dumps({"nodes":json_data})
 
-@app.route("/subGraphOfLabel",methods=['POST'])
+@app.route("/subLayerOfRootConcept",methods=['POST'])
 def getRelation():
     label = request.form["data"]
     label =json.loads(label)
-    Movie_Query =' MATCH (n:'+label+') Return n.name as name,n.descr as description limit 10; '   
+    Movie_Query =' MATCH (n:'+label+') Return n.name as name,n.descr as description limit 20; '   
     Relation_data=graph.run(Movie_Query).data()
     return json.dumps(Relation_data)
 
 
-@app.route("/personPerMovie", methods=['POST'])
+@app.route("/sublayersOfLayer", methods=['POST'])
 def getNodes():
+    links = []
+    nodes = {'name':[]}
+    layer = {}
+
     try:
-        data = request.form["data"]
-        nodes = request.form["nodes"]
-        links = request.form["links"]
+        RequestedNode = json.loads(request.form["data"])
+        # nodes = request.form["nodes"]
+        # links = request.form["links"]
     except:
         return json.dumps('There is error for requesting data')
-    Relation_Query = """
-                        MATCH (n:Person)-[:ACTED_IN]->(m:Movie) WHERE m.title = """+data+"""
-                            RETURN n.name as name ,n.born as born; 
-                    """
-    Relation_data = graph.run(Relation_Query).data()
-    return json.dumps(Relation_data)
+    try:
+        RelationDataIsSourceLine1 = """ 
+                MATCH (n)-[r]->(m) WHERE n.name = '{0}'
+                    RETURN n.name as source,m.name as target limit 10
+                UNION 
+                MATCH (n)<-[r]-(m) WHERE n.name = '{0}' 
+                    RETURN m.name as source,n.name as target limit 10;
+        """.format(RequestedNode) 
+
+        Relation_data = graph.run(RelationDataIsSourceLine1).data()
+    
+    except:
+        return print("Error")
+    for data in Relation_data:
+        link={}
+        found = False
+        if((data['source'] in nodes['name']) == False):
+            nodes['name'].append(data['source'])
+        if((data['target']  in nodes['name']) == False):
+            nodes['name'].append(data['target'])
+        link['source'] = data['source']
+        link['target'] = data['target']
+        if(link['source'] != RequestedNode):
+            for singleData in links:
+                if(link['source'] == singleData['target']):
+                    found = True
+                    break
+        else:
+            if(link['source'] == RequestedNode and link['target'] == RequestedNode):
+                found = True
+        if(found == False):
+            links.append(link)
+    layer['nodes'] = nodes
+    layer['links'] = links
+    return json.dumps(layer)
 
 # Convert data from Neo4j to Json type for using AlchemyJS library
 # Note: Before run quey in app, should run the query in neo4j browser to check the valideate
-# The Neo4j database name must be exact uppercase and lowercase character
+# The Neo4j database data name must be exact uppercase and lowercase character
 # #
 def CovertToJson():
     """

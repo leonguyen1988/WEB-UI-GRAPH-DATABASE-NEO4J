@@ -11,9 +11,14 @@
                 rel="stylesheet" type="text/css" />      -->
                 <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.1/d3.min.js">
                         </script> -->
-            <script src="https://d3js.org/d3.v4.min.js"></script>
+            <!-- <script src="https://d3js.org/d3.v4.min.js"></script> -->
+            <script
+            src="https://code.jquery.com/jquery-3.3.1.js"
+            integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60="
+            crossorigin="anonymous"></script>
+
             <script type="text/javascript"
-                src ="{{url_for('static',filename='jquery-3.3.1.min.js')}}"></script> 
+                src ="{{url_for('static',filename='d3.4.js')}}"></script> 
            
         <style>
              .smallCircle {
@@ -64,19 +69,22 @@
 
     </head>
     <body>
-        <div id ="nav"></div>
+        <div id ="nav">
+            <input id = "getSearchedValue" >
+        </div>
         <div id="graph">
             
         </div>
     
         <script>
-            var width = window.innerWidth;
-            var height = window.innerHeight;
+            var width = 2000;
+            var height = 2000;
             var radius = 45;
             var firstLine = null; secondLine = null;
             var stardardColors = d3.scaleOrdinal(d3.schemeCategory10);
             var nodes=[],links=[];
             var edgepaths= null,edgelabels=null;
+            var counterLayer = 1;
             /*
             * Setting up SVG 
             */
@@ -111,7 +119,7 @@
             
             var simulation = d3.forceSimulation()  
                         .force( 'center' , d3.forceCenter( width / 2 , height / 2 ) )
-                        .force( "charge" , d3.forceManyBody().strength( 0 ) )
+                        .force( "charge" , d3.forceManyBody().strength( -5 ) )
                 
             var linkElemets = null;
 
@@ -123,16 +131,21 @@
             * Get All labels from Neo4j Database via Python driver
             ******************************************************/
             $.get( "/home" , function( data ){
+
+                var raw_data = JSON.parse( '{{ data|tojson }}' ) ;
+              
+                for (var i = 0 ; i < raw_data.length ; i++ ) {
+                    nodes.push({layer : counterLayer, name : raw_data[i].name});
+                }
+                
+                
+                
                 nodeElements =  addNodes( nodeElements ,
-                                JSON.parse( '{{ data|tojson }}' ) ,
+                                nodes,
                                 radius ,
                                 "start" ) ; 
+                
                 runRestart();
-            
-            /**
-             * Deleter first data of links which is dumps data
-            */
-            links.pop(); 
             })
             
             /*
@@ -173,7 +186,7 @@
             /*
             * This event will be fired when user double click to the node
             */
-                function dblclick(){
+            function dblclick(){
                 
                 SelectedValue = $(this)["0"].__data__;
                 
@@ -183,118 +196,209 @@
                 
                 selectedColor = SelectedValue.color;
 
+                layer = SelectedValue.layer;
                 // Flag for checking duplicate node
                 var duplicate = false; 
                 
                 /*
                 * Condition to check whether user click same node twice or not
+                * If user click the root node or click other root node/ root concept
+                * functon will delete all sub layers itself
                 */
                 if( links.length >= 2){
                     for ( var i = 1; i < links.length ; i++ ){
-                        if(links[i].source.name === name){
+                        if(links[i].source.name === name &&
+                            layer  <counterLayer){
                             duplicate = true;
-                            
-                            cleanUp();
-                            
-                            runRestart();
                             break;
                         }
                     }
                 }
+                
+                // if ( links.length === 0 ){
+                    
+                //     linkElemets  = svg.selectAll("line").data(links,
+                //             function ( node ) { 
+                //                 return node.source +
+                //                         "-" + 
+                //                         node.target });
+        
+                //     svg.selectAll('line').remove();
+                //     svg.selectAll('circle').remove();
+                //     linkElemets.exit().remove();
+                // }
+
+                // nodeElements = addNodes( nodeElements ,
+                //                             nodes ,
+                //                             radius ,
+                //                             "clean" ) ;
+                // runRestart();
 
                 if( duplicate === false ){
                     
                     if (parseInt($(this).attr('r')) === radius){
                         
-                        $.post("/subGraphOfLabel",
+                        $.post("/subLayerOfRootConcept",
                                 { data : JSON.stringify(name) } , 
                                 function(data){
                                     
-                                    if(links.length !== 0){
-                                        links.splice(0,links.length);
-                                    }
-
+ 
+                                    // if(links.length !== 0 ){
+                                    //     links.splice(0,links.length);
+                                    // }
+                                    counterLayer =  1;
                                     cleanUp();
-
+                                    
                                     dataJson = JSON.parse(data);
                                     
-                                    lengthOfNode = nodes.length;
+                                    lengthOfOriginNodes = nodes.length;
+                                    
                             
-                                    linkElemets = addLinks(linkElemets,dataJson,index,lengthOfNode)
+                                    counterLayer = counterLayer +1;
+
+                                    for (var i = 0 ; i < dataJson.length ; i++ ) {
+                                        nodes.push( { 
+                                            layer : counterLayer,
+                                            name : dataJson[i].name 
+                                        } );
+                                    }
+                                        
+                                
 
                                     nodeElements = addNodes(nodeElements,dataJson,radius-5,selectedColor);
                             
-                                    runRestart();      
+                                    linkElemets = addLinks(linkElemets,dataJson,index,lengthOfOriginNodes);
+
+                                    
+
+                                    runRestart();
+                                          
                                 }
                             );
 
                     }else{
-                        $.post("/personPerMovie",
-                                { 
-                                    data:JSON.stringify(name),
-                                    nodes:JSON.stringify(nodes),
-                                    links:JSON.stringify(links)
-                                } , function(data) {
-                                    
-                                        duplicateIndex=[]
-                                    
-                                        dataJson = JSON.parse(data);
-                                        /*
-                                        * This loop to find the exist nodes
-                                        */
-                                        for( var i =0 ; i < nodes.length ; i++ ) {
-                                            
-                                            for(var j=0;j<dataJson.length;j++){
-                                                if( nodes[i].name === dataJson[j].name ) {
-                                                    duplicateIndex.push(i);
-                                                    dataJson.splice(j,1);
-                                                }
-                                            }
-                                        }
-                                    
-                                    if( dataJson.length !== 0){
-                                            addNodes( nodes , dataJson , radius , "Circle" )
-                                            addLinks( linkElemets , dataJson , index , nodes.length)
-                                            
-                                    }
-                                    if(duplicateIndex.length !==0){
-                                        for(var i=0 ; i < duplicateIndex.length ; i++ ) {
-                                            links.push( { source:index , target:duplicateIndex[i] } );
-                                        }
-                                        
-                                        link = link.data( links, function( d ) {
-                                                                    return d.source + "-" + d.target;
-                                                                } ) ;
-                                        link.exit().remove();
-                                        link = link.enter()
-                                                    .insert("line")
-                                                    .attr("stroke", "#f44242")
-                                                    .attr('marker-end','url(#arrowhead)')
-                                                    .merge(link);
+                        $.post("/sublayersOfLayer",
+                            { 
+                                data:JSON.stringify(name),
+                                nodes:JSON.stringify(nodes),
+                                links:JSON.stringify(links)
+                            } , function(data) {
+                                
+                            duplicateIndex=[]
+                        
+                            dataJson = JSON.parse(data);
 
+                            lengthOfOriginNodes = nodes.length;
+                            
+                            counterLayer = counterLayer + 1;
+
+                            /*
+                            * This loop to find the exist nodes
+                            * This condition to find a child node which have two parent nodes
+                            */
+                            for( var i =0 ; i < nodes.length ; i++ ) {
+                                
+                                for(var j=0;j<dataJson.length;j++){
+                                    if( nodes[i].name === dataJson[j].name ) {
+                                        duplicateIndex.push(i);
+                                        dataJson.splice(j,1);
+                                    }
+                                }
+                            }
+                            
+                            for (var i = 0 ; i < dataJson.nodes.name.length ; ++i ) {
+                                        if(dataJson.nodes.name[i] !== name){
+                                            nodes.push( { 
+                                                layer : counterLayer , 
+                                                name : dataJson.nodes.name[i] 
+                                                } );
+
+                                        }
+                                    } 
+                            
+                            for (var i = 0 ;i < dataJson.links.length ; ++i) {
+                                if(name === dataJson.links[i].source){
+                                    links.push( { source:index,
+                                                  sourceName:dataJson.links[i].source,
+                                                  target:lengthOfOriginNodes+i,
+                                                  targetName:dataJson.links[i].target,
+                                                  layer:counterLayer 
+                                                });
+                                    
+                                }else{
+                                    links.push ({
+                                        source:lengthOfOriginNodes+i,
+                                        sourceName:dataJson.links[i].source,
+                                        target : index,
+                                        targetName:dataJson.links[i].target,
+                                        layer :counterLayer
+                                    });
+                                }
+                            }
+
+                            if( dataJson.nodes.name.length !== 0){
+                                nodeElements = addNodes( nodeElements,nodes , radius-5 , selectedColor )   
+                            }
+                            if(links.length !== 0) {
+                                linkElemets = addLinks(linkElemets,links,null,null)
+                            }
+                            // if( dataJson.links.length !==0) {
+                            //     addLinks( linkElemets , dataJson , index , nodes.length)
+                            // }
+                                    // if(duplicateIndex.length !==0){
+                                    //     for(var i=0 ; i < duplicateIndex.length ; i++ ) {
+                                    //         links.push( { source:index , target:duplicateIndex[i] } );
+                                    //     }
                                         // textElements = textElements.data(nodes, function(node) {return node.name});
                                         // textElements.exit().remove();
                                         // textElements = textElements.enter()
                                         //                             .append("text")
                                         //                             .attr("class","mytext")
                                         //                             .merge(textElements) 
-
-                                    }
-                                    // simulation.nodes(nodes)
-                                    //               .force("collide", d3.forceCollide(radius)
-                                    //               .iterations(4))
-                                    //               .on('tick',tick);    
-                                    //     simulation.alpha(2).restart(); 
-                                    simulation.nodes(nodes)
-                                                .force("collide", d3.forceCollide(radius).iterations(1))
-                                                .force('link',d3.forceLink(links).distance(10))
-                                            .on('tick',tick);
-                                    simulation.alpha(3).restart();
+                                    runRestart();
                                 });
                     }
+                }else {
+                    
+                    if( layer !== 1 ) {
+                        
+                        removeLayer(layer)
+                        
+                        nodeElements = addNodes(nodeElements,nodes,radius,"clean");
+                        
+                        linkElemets = addLinks(linkElemets, links,null,null);
+                    
+                    } else {
+                    
+                        cleanUp();
+                        nodeElements = addNodes( nodeElements ,
+                                                nodes ,
+                                                radius ,
+                                                "clean" ) ;
+                    
+                    }      
+                    runRestart();
                 }
-                }  
+            }  
 
+            function removeLayer(layer){
+                for(var i = nodes.length-1 ; i !== -1 ; --i){
+                    if( nodes[i].layer !== layer ) {
+                        nodes.pop()
+                    }else {
+                        break
+                    }
+                }
+
+                for( var i = links.length-1   ; i >=0  ;  --i){
+                    if(links[i].layer !== layer) {
+                        links.pop();
+                    } else {
+                        break;
+                    }
+                }
+                counterLayer = layer;
+            }
             /** 
              * Add new nodes to list of current nodes 
              * @param {list of nodes} nodes  UI element nodes
@@ -306,19 +410,19 @@
             function addNodes(nodeElements,data,radius,color){
                 var beginning = false;
                 
-                if( nodes.length === 0){
+                if( color === "start"){
                 
                     beginning =  true;
                 }
                 
-                if ( color !== "clean" ) {
+                // if ( color !== "clean" ) {
                  
-                    for(var i = 0; i < data.length ; i++ ){
+                //     for(var i = 0; i < data.length ; i++ ){
                     
-                    nodes.push(data[i]);
+                //     nodes.push(data[i]);
                 
-                    }
-                }
+                //     }
+                // }
 
                 // if(color === "clean") {
                 //     nodeElements = nodeElements.selectAll("circle");
@@ -328,21 +432,24 @@
                     nodeElements = svg.selectAll("circle").data(nodes);
                     textElements = svg.selectAll("text").data(nodes);
                 } else{
-                    nodeElements = nodeElements.data(nodes, function(node){return node.name;});
-                    textElements = textElements.data(nodes, function(node) {return node.name;});
+                    nodeElements = svg.selectAll("circle")
+                                               .data(nodes, function(node){return node.name;});
+                    textElements = svg.selectAll('text')
+                                               .data(nodes, function(node) {return node.name;});
                 }
                 
                 nodeElements.exit().remove();
 
                 nodeElements = nodeElements.enter()
-                                           .append("circle")
+                                           .insert("circle","text")
+                                           .attr("id","layer " + String ( counterLayer   ) )
                                            .attr("fill",
                                                 ( color === "start" || 
                                                   color === "clean" ) ? 
                                                     function(node) {
                                                         node.color = stardardColors(node.name);
                                                     return node.color;
-                                                    } : color)
+                                                    } : function(node) {return node.color = color})
                                             .attr("r", radius)
                                             .call(d3.drag()
                                                     // .container(selected)
@@ -362,7 +469,9 @@
                                             .append("text")
                                             .attr("class","mytext")
                                             .merge(textElements)                  
+                
                 AddMultilines(nodes); 
+
                 return nodeElements;
             }
 
@@ -394,14 +503,17 @@
                 
                 var beginning = links.length === 0 ? true : false ;
                 
-                for (var i = 0 ; i < data.length ; i++ ){
-                    links.push( { source : sourceIndex
-                                , target : lengthofNodes + i
-                                , type : links.description } ) ;
-                }
+
 
                 if( beginning === true ) {
 
+                    for (var i = 0 ; i < data.length ; i++ ){
+                    links.push( { source : sourceIndex
+                                , target : lengthofNodes + i
+                                , layer  : counterLayer} ) ;
+                    
+                            };
+                    
                     linkElemets = svg.selectAll("line").data(links);    
                 
                 } else {
@@ -441,39 +553,6 @@
                 simulation.alpha(1.5).restart();
             }
 
-            function addPath(links){
-            var edgepaths= svg.selectAll(".edgepath")
-                                .data(links)
-                                .enter()
-                                .append('path')
-                                .attr('class','edge')
-                                .attr('fill-opacity',0)
-                                .attr('stroke-opacity',0)
-                                .attr('id',function(d,i) {
-                                    return 'edgepath' + i
-                                })
-                                .style("pointer-events","none");
-            return edgepaths;
-            }
-            function addPathLabel(links){
-            var edgelabels= svg.selectAll('.edgelabel')
-                                .data(links)
-                                .enter()
-                                .append('text')
-                                .style("pointer-events",'none')
-                                .attr('class','edgelabel')
-                                .attr('id',function (d,i) {return 'edgelable'+i})
-                                .attr('font-size',30 )
-                                .attr('fill','#aaa');
-            edgelabels.append('textPath')
-                        .attr('xlink:href',function (d,i) {return '#edgepath'+i})
-                        .style('text-anchor','middle')
-                        .style('pointer-events','none')
-                        .attr('startOffset','50%')
-                        .text(function (node) {return node.type});
-            return edgelabels;
-            }
-
             /*
             * 
             */
@@ -483,9 +562,7 @@
                         .attr("x1", function(d) { return d.source.x; })
                         .attr("y1", function(d) { return d.source.y; })
                         .attr("x2", function(d) { return d.target.x; })
-                        .attr("y2", function(d) { return d.target.y; })
-                        .attr("r"), function(d) { return d.target.r;};
-                }
+                        .attr("y2", function(d) { return d.target.y; })                }
                 if( nodes.length !== 0 ){
                     nodeElements
                         .attr("cx",function(node) {
@@ -505,42 +582,41 @@
                         .attr("dy","15");    
                 }
             }
+            
             function cleanUp() { 
                 
-                var counter = linkElemets._groups["0"].length - 1 ;
+                if( links.length != 0 ){
+                    var counter = linkElemets._groups["0"].length - 1 ;
+                    while(counter !== -1 ) {
 
-                while(counter !== -1 ) {
+                        var index = linkElemets._groups["0"][counter].__data__.target.index;
 
-                    var index = linkElemets._groups["0"][counter].__data__.target.index;
-                    
-                    nodes.pop( index , 1 ) ;
-                    // nodeElements._groups[0].splice(index,1);
-                    links.pop();
+                        nodes.pop( index , 1 ) ;
+                        // nodeElements._groups[0].splice(index,1);
+                        links.pop();
 
-                    //linkElemets._groups["0"].pop();
-                    counter--;
+                        //linkElemets._groups["0"].pop();
+                        counter--;
+                    }
                 }
-                
-                // d3.selectAll("line").remove();
-
-                // d3.selectAll("circle").remove()
-                
-                // d3.selectAll("text").remove();
-                
-                // nodeElements._parents.pop();
+        
                 if ( links.length === 0 ){
+                    
                     linkElemets  = svg.selectAll("line").data(links,
-                        function ( node ) { return node.source + "-" + node.target});
+                            function ( node ) { 
+                                return node.source +
+                                        "-" + 
+                                        node.target });
+
                     svg.selectAll('line').remove();
+
+                    // svg.selectAll('circle').remove();
+
                     linkElemets.exit().remove();
-                    // linkElemets.enter();
-                    // d3.selectAll("line").remove();
-                } else {
-                    // linkElemets = addLinks(linkElemets,links,);
                 }
-                nodeElements = addNodes(nodeElements,nodes,radius,"clean");
-                
             }
+                        
+
         </script>    
     </body>
 </html>
