@@ -42,7 +42,7 @@ rope==0.11.0
 scipy==1.1.0
 six==1.11.0
 traitlets==4.3.2
-urllib3==1.22
+urllib3==1.26.5
 virtualenv==16.1.0
 virtualenv-clone==0.4.0
 wcwidth==0.1.7
